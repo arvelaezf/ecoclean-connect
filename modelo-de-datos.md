@@ -15,7 +15,7 @@ auth.users (Supabase Auth)
      ▼
   perfiles ──── rol: ciudadano | conductor | admin
 
-  solicitudes ── ciclo de vida: pendiente → en_ruta → recogido
+  solicitudes ── ciclo: cotizada → pendiente | rechazada → en_ruta → recogido
 ```
 
 Los reportes **no se insertan directamente** desde el navegador: pasan por el backend (n8n), donde la IA valida la foto y las reglas de negocio calculan el precio. Esto es una decisión de seguridad y antifraude.
@@ -42,7 +42,7 @@ Cada fila es un reporte ciudadano de un residuo voluminoso.
 | `estrato` | int | Estrato socioeconómico (auto-detectado por capa DANE, confirmado por el usuario) |
 | `lat`, `lng` | float8 | Coordenadas del punto de recogida (GPS o pin ajustado) |
 | `direccion` | text | Dirección legible (geocodificación inversa, editable) |
-| `estado` | text | Ciclo logístico: `pendiente` → `en_ruta` → `recogido` |
+| `estado` | text | Ciclo: `cotizada` → (decisión del usuario) → `pendiente` o `rechazada` → `en_ruta` → `recogido` |
 | `orden_ruta` | int | Posición de la parada en la ruta optimizada (la lee el conductor) |
 | `foto_base64` | text | Foto del residuo (base64; en producción migraría a Storage) |
 
@@ -77,7 +77,9 @@ CIUDADANO (web, autenticado)
   foto + GPS + estrato ──► n8n (webhook)
                               ├─► Claude Vision: clasifica, estima, valida (antifraude)
                               ├─► Reglas de negocio: tarifa + subsidio (determinista)
-                              └─► INSERT en solicitudes (service_role)
+                              └─► INSERT en solicitudes con estado='cotizada' (service_role)
+  el ciudadano ve el precio y DECIDE ──► acepta: estado='pendiente' (entra al panel)
+                                     └─► rechaza: estado='rechazada' (dato de elasticidad)
 ADMIN (panel)
   lee solicitudes (anon + RLS) ──► optimiza ruta (vecino más cercano + OSRM)
                                 └─► UPDATE estado='en_ruta', orden_ruta=N

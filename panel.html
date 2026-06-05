@@ -158,7 +158,7 @@ L.marker([BASE.lat, BASE.lng]).addTo(mapa).bindPopup(`<b>🏭 ${BASE.nombre}</b>
 async function cargar() {
   if (SUPABASE_URL.includes('PEGA_AQUI')) { alert('Falta configurar SUPABASE_URL y SUPABASE_KEY en el código'); return; }
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/solicitudes?select=*&es_valido=eq.true&order=created_at.desc&limit=100`, { headers });
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/solicitudes?select=*&es_valido=eq.true&estado=in.(pendiente,en_ruta,recogido)&order=created_at.desc&limit=100`, { headers });
     solicitudes = await res.json();
     pintar();
   } catch (e) {

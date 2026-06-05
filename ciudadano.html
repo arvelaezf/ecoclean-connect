@@ -63,6 +63,10 @@
   .ok { border: 2px solid var(--verde); border-radius: 10px; padding: 16px; background: #eef7ef; }
   .rechazo { border: 2px solid #b3322b; border-radius: 10px; padding: 16px; background: #fbeeed; }
   .precio { font-size: 2rem; color: var(--verde-oscuro); font-weight: bold; }
+  .decide { display: flex; gap: 8px; margin-top: 10px; }
+  .decide button { flex: 1; padding: 11px; border-radius: 8px; font-family: inherit; font-weight: 700; font-size: .9rem; cursor: pointer; }
+  .btn-acepta { background: linear-gradient(90deg, var(--verde), var(--azul)); color: #fff; border: none; }
+  .btn-rechaza { background: #fff; color: var(--slogan); border: 1.5px solid var(--slogan); }
   .linea { font-size: .95rem; margin: 4px 0; }
   details { margin-top: 12px; font-size: .8rem; }
   pre { background: #1a2e22; color: #c8e6c9; padding: 12px; border-radius: 8px; overflow-x: auto; margin-top: 8px; }
@@ -363,13 +367,21 @@ async function enviar() {
 
     let html;
     if (d.es_valido) {
-      html = `<div class="ok">
+      // Si el backend devuelve el id, la cotización espera la decisión del usuario
+      const cierre = d.id
+        ? `<div class="linea" style="margin-top:10px"><b>¿Aceptas el precio?</b></div>
+           <div class="decide">
+             <button class="btn-acepta" onclick="responderCotizacion('${d.id}', true)">✅ Aceptar y solicitar</button>
+             <button class="btn-rechaza" onclick="responderCotizacion('${d.id}', false)">No, gracias</button>
+           </div>`
+        : `<div class="linea" style="margin-top:6px">🚛 Tu solicitud ya está en el mapa del recolector.</div>`;
+      html = `<div class="ok" id="cajaCotiza">
         <div class="linea">✅ <b>${d.descripcion}</b></div>
         <div class="linea">Tipo: ${d.tipo} · Peso est.: ${d.peso_kg} kg</div>
         <div class="linea">Tarifa base: ${fmt(d.tarifa_base)} · Subsidio: ${d.subsidio_pct}%</div>
         <div class="linea" style="margin-top:8px">Pagas solo:</div>
         <div class="precio">${fmt(d.precio_final)}</div>
-        <div class="linea" style="margin-top:6px">🚛 Tu solicitud ya está en el mapa del recolector.</div>
+        ${cierre}
       </div>`;
     } else {
       html = `<div class="rechazo">❌ <b>Solicitud rechazada por la IA</b><br>${d.motivo_rechazo}</div>`;
@@ -383,6 +395,22 @@ async function enviar() {
   }
   $('btn').disabled = false;
   $('btn').textContent = 'Cotizar recolección';
+}
+
+// ---------- Aceptar o rechazar la cotización ----------
+async function responderCotizacion(id, acepta) {
+  const dbHeaders = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' };
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/solicitudes?id=eq.${id}`, {
+      method: 'PATCH', headers: dbHeaders,
+      body: JSON.stringify({ estado: acepta ? 'pendiente' : 'rechazada' })
+    });
+    document.getElementById('cajaCotiza').innerHTML = acepta
+      ? '<div class="linea">🚛 <b>¡Solicitud confirmada!</b> Ya está en el mapa del recolector y pronto se asignará a una ruta.</div>'
+      : '<div class="linea">Entendido — la cotización fue descartada. Puedes cotizar otro residuo cuando quieras.</div>';
+  } catch (e) {
+    alert('No pude registrar tu respuesta, intenta de nuevo.');
+  }
 }
 
 // ---------- EcoBot: asistente conversacional (IA generativa vía n8n) ----------
