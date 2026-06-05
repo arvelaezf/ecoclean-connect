@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EcoClean Connect · Reporta tu residuo</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde: #39A949;
+    --verde-claro: #A3D556;
+    --verde-oscuro: #1B5E34;
+    --cian: #1BA2DB;
+    --azul: #165A8F;
+    --marino: #0B2A5C;
+    --slogan: #4A769B;
+    --crema: #f2f7f4;
+    --tinta: #0B2A5C;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Poppins', 'Segoe UI', sans-serif;
+    background: var(--crema); color: var(--tinta);
+    min-height: 100vh; display: flex; justify-content: center; padding: 24px 14px;
+  }
+  .tarjeta {
+    background: #fff; border: 2px solid var(--tinta); border-radius: 14px;
+    box-shadow: 6px 6px 0 var(--verde); max-width: 460px; width: 100%; padding: 26px;
+  }
+  .logo { display: block; margin: 0 auto 2px; max-height: 130px; max-width: 90%; }
+  h1 { font-size: 1.45rem; color: var(--verde-oscuro); }
+  .sub { font-size: .85rem; color: var(--slogan); margin: 2px 0 18px; text-align: center; }
+  label { display: block; font-weight: bold; font-size: .8rem; margin: 14px 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  input[type=file], select, input[type=text] {
+    width: 100%; padding: 10px; border: 1.5px solid var(--tinta);
+    border-radius: 8px; background: var(--crema); font-family: inherit; font-size: .95rem;
+  }
+  #preview { display: none; width: 100%; border-radius: 8px; margin-top: 10px; border: 1.5px solid var(--tinta); }
+  .campo-dir { position: relative; }
+  #sugerencias {
+    display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 1500;
+    background: #fff; border: 1.5px solid var(--tinta); border-radius: 0 0 8px 8px;
+    max-height: 180px; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,.15);
+  }
+  #sugerencias div { padding: 9px 12px; font-size: .85rem; cursor: pointer; border-bottom: 1px solid #eee; }
+  #sugerencias div:hover { background: #eef7ef; }
+  #miniMapa {
+    height: 220px; border: 1.5px solid var(--tinta); border-radius: 8px; margin-top: 6px;
+  }
+  .hint { font-size: .75rem; color: #5a6b5f; margin-top: 5px; font-style: italic; }
+  #gpsEstado { font-size: .78rem; margin-top: 6px; }
+  button#btn {
+    width: 100%; margin-top: 20px; padding: 14px;
+    background: linear-gradient(90deg, var(--verde), var(--azul)); color: #fff; border: none; border-radius: 8px;
+    font-family: inherit; font-size: 1.05rem; font-weight: bold; cursor: pointer;
+    transition: transform .1s, background .2s;
+  }
+  button#btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  button#btn:disabled { background: #9bb5a4; cursor: wait; }
+  #resultado { margin-top: 20px; display: none; }
+  .ok { border: 2px solid var(--verde); border-radius: 10px; padding: 16px; background: #eef7ef; }
+  .rechazo { border: 2px solid #b3322b; border-radius: 10px; padding: 16px; background: #fbeeed; }
+  .precio { font-size: 2rem; color: var(--verde-oscuro); font-weight: bold; }
+  .linea { font-size: .95rem; margin: 4px 0; }
+  details { margin-top: 12px; font-size: .8rem; }
+  pre { background: #1a2e22; color: #c8e6c9; padding: 12px; border-radius: 8px; overflow-x: auto; margin-top: 8px; }
+
+  /* ---------- EcoBot: widget de chat flotante ---------- */
+  .chat-fab {
+    position: fixed; bottom: 18px; right: 18px; z-index: 3000;
+    width: 58px; height: 58px; border-radius: 50%; border: 2px solid #fff;
+    background: linear-gradient(135deg, var(--verde), var(--azul));
+    color: #fff; font-size: 1.5rem; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(11,42,92,.35);
+  }
+  .chat-caja {
+    display: none; position: fixed; bottom: 86px; right: 18px; z-index: 3000;
+    width: 330px; max-width: calc(100vw - 28px); height: 440px; max-height: 70vh;
+    background: #fff; border: 2px solid var(--tinta); border-radius: 14px;
+    box-shadow: 6px 6px 0 var(--verde); display: none; flex-direction: column; overflow: hidden;
+  }
+  .chat-caja.abierta { display: flex; }
+  .chat-cab {
+    background: var(--marino); color: #fff; padding: 10px 14px;
+    font-weight: 600; font-size: .9rem; display: flex; justify-content: space-between; align-items: center;
+  }
+  .chat-cab span { cursor: pointer; font-size: 1.1rem; }
+  .chat-msgs { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: var(--crema); }
+  .burbuja { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: .85rem; line-height: 1.35; }
+  .burbuja.bot { background: #fff; border: 1.5px solid var(--tinta); align-self: flex-start; border-bottom-left-radius: 3px; }
+  .burbuja.yo { background: linear-gradient(135deg, var(--verde), var(--azul)); color: #fff; align-self: flex-end; border-bottom-right-radius: 3px; }
+  .chat-pie { display: flex; gap: 6px; padding: 10px; border-top: 1.5px solid #ddd; background: #fff; }
+  .chat-pie input { flex: 1; padding: 9px; border: 1.5px solid var(--tinta); border-radius: 8px; font-family: inherit; font-size: .85rem; background: var(--crema); }
+  .chat-pie button {
+    padding: 9px 14px; border: none; border-radius: 8px; cursor: pointer;
+    background: linear-gradient(90deg, var(--verde), var(--azul)); color: #fff; font-weight: 700; font-family: inherit;
+  }
+</style>
+</head>
+<body>
+<div class="tarjeta">
+  <img src="logo.png" alt="Eco Clean Connect — Tecnología y Sostenibilidad" class="logo">
+  <p class="sub">Reporta tu residuo voluminoso: la IA lo clasifica y te cotiza al instante con tu subsidio.</p>
+  <p class="hint" id="usuario" style="text-align:center; margin-top:-10px"></p>
+
+  <label>Foto del residuo</label>
+  <input type="file" id="foto" accept="image/*" capture="environment">
+  <img id="preview" alt="Vista previa">
+
+  <label>Ubicación de recogida</label>
+  <div id="miniMapa"></div>
+  <p class="hint">📍 Arrastra el pin (o toca el mapa) si la ubicación detectada no es exacta.</p>
+  <p id="gpsEstado">🛰️ Detectando tu ubicación...</p>
+
+  <label>Dirección (puedes corregirla)</label>
+  <div class="campo-dir">
+    <input type="text" id="direccion" placeholder="Detectando dirección..." autocomplete="off">
+    <div id="sugerencias"></div>
+  </div>
+
+  <label>Estrato socioeconómico</label>
+  <select id="estrato">
+    <option value="" selected>— Selecciona tu estrato —</option>
+    <option value="1">Estrato 1 (subsidio 70%)</option>
+    <option value="2">Estrato 2 (subsidio 50%)</option>
+    <option value="3">Estrato 3 (subsidio 30%)</option>
+    <option value="4">Estrato 4 (subsidio 10%)</option>
+    <option value="5">Estrato 5 (sin subsidio)</option>
+    <option value="6">Estrato 6 (sin subsidio)</option>
+  </select>
+  <p class="hint" id="estratoEstado"></p>
+
+  <button id="btn" onclick="enviar()">Cotizar recolección</button>
+  <div id="resultado"></div>
+</div>
+
+<button class="chat-fab" onclick="toggleChat()" title="Pregúntale a EcoBot">💬</button>
+<div class="chat-caja" id="chatCaja">
+  <div class="chat-cab">🤖 EcoBot · Asistente EcoClean <span onclick="toggleChat()">✕</span></div>
+  <div class="chat-msgs" id="chatMsgs"></div>
+  <div class="chat-pie">
+    <input id="chatInput" placeholder="Escribe tu pregunta..." onkeydown="if(event.key==='Enter')enviarChat()">
+    <button onclick="enviarChat()">➤</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const WEBHOOK = "https://arvelaezf.app.n8n.cloud/webhook/ecoclean";
+
+// ---------- Autenticación (Supabase Auth): cualquier rol puede reportar ----------
+const SUPABASE_URL = "https://lfalktorfiodcjyhkynb.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmYWxrdG9yZmlvZGNqeWhreW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1Nzk4ODgsImV4cCI6MjA5NjE1NTg4OH0.8Ublgykq5WhsKvKuyEChCJZEq7J7otQlR2Tm2hsUP84";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { location.href = 'login.html'; return; }
+  // Si es admin o conductor, mostrar el enlace de regreso a su portal
+  const { data: p } = await sb.from('perfiles').select('rol').eq('id', session.user.id).single();
+  const rol = p ? p.rol : 'ciudadano';
+  const volver = rol === 'admin' ? ` · <a href="panel.html" style="color:var(--azul); font-weight:600">🗺️ Panel admin</a>`
+               : rol === 'conductor' ? ` · <a href="conductor.html" style="color:var(--azul); font-weight:600">🚛 Mi ruta</a>`
+               : '';
+  document.getElementById('usuario').innerHTML =
+    `👤 ${session.user.email}${volver} · <a href="#" onclick="cerrarSesion()" style="color:var(--azul)">Salir</a>`;
+})();
+async function cerrarSesion() { await sb.auth.signOut(); location.href = 'login.html'; }
+
+// ⬇️ URL del servicio de estratificación (capa ArcGIS de estratos por manzana).
+// Debe terminar en /FeatureServer/0 (o el número de capa que corresponda).
+// Si se deja el placeholder, la página funciona igual con selección manual.
+const ESTRATO_SERVICE = "https://ags.esri.co/arcgis/rest/services/LivingAtlas/Estrato_predominante_por_manzana_2018/MapServer/0";
+
+const $ = id => document.getElementById(id);
+const fmt = n => '$' + Number(n).toLocaleString('es-CO');
+
+// ---------- Mini-mapa con pin arrastrable ----------
+const INICIO = { lat: 6.1664, lng: -75.5836 }; // centro de Envigado (respaldo si no hay GPS)
+const mapa = L.map('miniMapa').setView([INICIO.lat, INICIO.lng], 15);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(mapa);
+const pin = L.marker([INICIO.lat, INICIO.lng], { draggable: true }).addTo(mapa);
+
+function actualizarUbicacion() { buscarDireccion(); detectarEstrato(); }
+pin.on('dragend', actualizarUbicacion);
+mapa.on('click', e => { pin.setLatLng(e.latlng); actualizarUbicacion(); });
+
+// ---------- GPS real del dispositivo ----------
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude, longitude } = pos.coords;
+      pin.setLatLng([latitude, longitude]);
+      mapa.setView([latitude, longitude], 17);
+      $('gpsEstado').textContent = '✅ Ubicación detectada por GPS (precisión ±' + Math.round(pos.coords.accuracy) + ' m)';
+      actualizarUbicacion();
+    },
+    err => {
+      $('gpsEstado').textContent = '⚠️ Sin GPS (' + err.message + '). Ubica el pin manualmente en el mapa.';
+      actualizarUbicacion();
+    },
+    { enableHighAccuracy: true, timeout: 8000 }
+  );
+} else {
+  $('gpsEstado').textContent = '⚠️ Este navegador no soporta GPS. Ubica el pin manualmente.';
+}
+
+// ---------- Estrato automático por geolocalización (capa pública de estratificación) ----------
+// Consulta punto-en-polígono: ¿en qué manzana cae el pin y qué estrato tiene?
+// Diseño a prueba de demo: si el servicio falla, tarda >4s o no hay dato,
+// el selector queda en modo manual y nada se rompe.
+async function detectarEstrato() {
+  if (ESTRATO_SERVICE.includes('PEGA_AQUI')) return; // sin servicio configurado → manual
+  const { lat, lng } = pin.getLatLng();
+  $('estratoEstado').textContent = '🔎 Consultando estrato oficial de la zona...';
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 4000);
+  try {
+    const url = `${ESTRATO_SERVICE}/query?geometry=${lng},${lat}` +
+      `&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects` +
+      `&distance=40&units=esriSRUnit_Meter` + // radio de 40 m: encuentra la manzana aunque el pin caiga en la calle
+      `&outFields=*&returnGeometry=false&resultRecordCount=1&f=json`;
+    const res = await fetch(url, { signal: ctrl.signal });
+    const d = await res.json();
+    clearTimeout(timer);
+
+    const attrs = d.features && d.features[0] && d.features[0].attributes;
+    if (!attrs) { estratoManual(); return; }
+
+    // Busca el campo de estrato sin importar cómo se llame (ESTRATO, ESTRATO_PRED, estrato...)
+    let valor = null;
+    for (const k of Object.keys(attrs)) {
+      if (k.toUpperCase().includes('ESTRATO')) {
+        const n = parseInt(String(attrs[k]).match(/[1-6]/)?.[0]);
+        if (n >= 1 && n <= 6) { valor = n; break; }
+      }
+    }
+    if (valor) {
+      $('estrato').value = String(valor);
+      $('estratoEstado').textContent = `✅ Estrato ${valor} detectado automáticamente (estratificación oficial por manzana) — corrígelo si no coincide con tu factura.`;
+    } else {
+      estratoManual();
+    }
+  } catch {
+    clearTimeout(timer);
+    estratoManual();
+  }
+}
+
+// Sin dato oficial → borra la selección anterior y exige elección manual
+function estratoManual() {
+  $('estrato').value = '';
+  $('estratoEstado').textContent = '⚠️ Sin dato oficial en este punto — selecciona tu estrato manualmente.';
+}
+
+// ---------- Dirección automática (geocodificación inversa con OpenStreetMap) ----------
+async function buscarDireccion() {
+  const { lat, lng } = pin.getLatLng();
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&accept-language=es`);
+    const d = await res.json();
+    const a = d.address || {};
+    $('direccion').value = [a.road, a.house_number, a.neighbourhood || a.suburb, a.town || a.city]
+      .filter(Boolean).join(', ') || (d.display_name || '').slice(0, 80);
+  } catch { /* si falla, el usuario escribe la dirección a mano */ }
+}
+
+// ---------- Búsqueda de dirección escrita: sugerencias que mueven el pin ----------
+let timerSugerencias = null;
+
+$('direccion').addEventListener('input', () => {
+  clearTimeout(timerSugerencias);
+  const texto = $('direccion').value.trim();
+  if (texto.length < 4) { $('sugerencias').style.display = 'none'; return; }
+  timerSugerencias = setTimeout(() => buscarSugerencias(texto), 500); // espera a que deje de escribir
+});
+
+// Enter = tomar la primera sugerencia
+$('direccion').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const primera = $('sugerencias').firstChild;
+    if (primera) primera.click();
+    else buscarSugerencias($('direccion').value.trim());
+  }
+});
+
+async function buscarSugerencias(texto) {
+  try {
+    // Sesgo hacia el Valle de Aburrá para resultados relevantes
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&countrycodes=co&limit=5&accept-language=es` +
+      `&viewbox=-75.75,6.05,-75.45,6.45&bounded=0&q=${encodeURIComponent(texto + ', Antioquia')}`
+    );
+    const lista = await res.json();
+    const caja = $('sugerencias');
+    caja.innerHTML = '';
+    if (!lista.length) { caja.style.display = 'none'; return; }
+
+    for (const lugar of lista) {
+      const div = document.createElement('div');
+      div.textContent = lugar.display_name.split(',').slice(0, 4).join(',');
+      div.onclick = () => {
+        const lat = parseFloat(lugar.lat), lng = parseFloat(lugar.lon);
+        pin.setLatLng([lat, lng]);
+        mapa.setView([lat, lng], 17);
+        $('direccion').value = div.textContent;
+        caja.style.display = 'none';
+        detectarEstrato(); // re-detecta el estrato del nuevo punto (sin pisar la dirección elegida)
+      };
+      caja.appendChild(div);
+    }
+    caja.style.display = 'block';
+  } catch { $('sugerencias').style.display = 'none'; }
+}
+
+// Cierra las sugerencias al tocar fuera
+document.addEventListener('click', e => {
+  if (!e.target.closest('.campo-dir')) $('sugerencias').style.display = 'none';
+});
+
+// ---------- Vista previa de la foto ----------
+$('foto').addEventListener('change', () => {
+  const f = $('foto').files[0];
+  if (!f) return;
+  $('preview').src = URL.createObjectURL(f);
+  $('preview').style.display = 'block';
+});
+
+// ---------- Enviar al clasificador (n8n) ----------
+async function enviar() {
+  const f = $('foto').files[0];
+  if (!f) return alert('Primero toma o selecciona una foto del residuo');
+  if (!$('estrato').value) return alert('Selecciona tu estrato socioeconómico para calcular el subsidio');
+
+  $('btn').disabled = true;
+  $('btn').textContent = '🤖 Analizando con IA...';
+  $('resultado').style.display = 'none';
+
+  try {
+    const dataUrl = await new Promise(r => {
+      const fr = new FileReader();
+      fr.onload = () => r(fr.result);
+      fr.readAsDataURL(f);
+    });
+
+    const { lat, lng } = pin.getLatLng();
+    const res = await fetch(WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        foto_base64: dataUrl.split(',')[1],
+        mime: f.type,
+        estrato: $('estrato').value,
+        lat: lat, lng: lng,
+        direccion: $('direccion').value || 'Sin dirección'
+      })
+    });
+    const d = await res.json();
+
+    let html;
+    if (d.es_valido) {
+      html = `<div class="ok">
+        <div class="linea">✅ <b>${d.descripcion}</b></div>
+        <div class="linea">Tipo: ${d.tipo} · Peso est.: ${d.peso_kg} kg</div>
+        <div class="linea">Tarifa base: ${fmt(d.tarifa_base)} · Subsidio: ${d.subsidio_pct}%</div>
+        <div class="linea" style="margin-top:8px">Pagas solo:</div>
+        <div class="precio">${fmt(d.precio_final)}</div>
+        <div class="linea" style="margin-top:6px">🚛 Tu solicitud ya está en el mapa del recolector.</div>
+      </div>`;
+    } else {
+      html = `<div class="rechazo">❌ <b>Solicitud rechazada por la IA</b><br>${d.motivo_rechazo}</div>`;
+    }
+    html += `<details><summary>Ver respuesta técnica (JSON)</summary><pre>${JSON.stringify(d, null, 2)}</pre></details>`;
+    $('resultado').innerHTML = html;
+    $('resultado').style.display = 'block';
+  } catch (e) {
+    $('resultado').innerHTML = `<div class="rechazo">⚠️ Error de conexión: ${e.message}</div>`;
+    $('resultado').style.display = 'block';
+  }
+  $('btn').disabled = false;
+  $('btn').textContent = 'Cotizar recolección';
+}
+
+// ---------- EcoBot: asistente conversacional (IA generativa vía n8n) ----------
+const CHAT_WEBHOOK = "https://arvelaezf.app.n8n.cloud/webhook/ecoclean-chat";
+let chatHistorial = []; // se envían los últimos mensajes para mantener el contexto
+
+function toggleChat() {
+  const caja = $('chatCaja');
+  caja.classList.toggle('abierta');
+  if (caja.classList.contains('abierta') && !$('chatMsgs').childElementCount) {
+    burbuja('¡Hola! Soy EcoBot 🤖♻️ Te ayudo con dudas sobre la recolección de residuos voluminosos: qué recogemos, tarifas, subsidios y cómo reportar. ¿Qué quieres saber?', 'bot');
+  }
+}
+
+function burbuja(texto, quien) {
+  const d = document.createElement('div');
+  d.className = 'burbuja ' + quien;
+  d.textContent = texto;
+  $('chatMsgs').appendChild(d);
+  $('chatMsgs').scrollTop = $('chatMsgs').scrollHeight;
+  return d;
+}
+
+async function enviarChat() {
+  const input = $('chatInput');
+  const texto = input.value.trim();
+  if (!texto) return;
+  input.value = '';
+  burbuja(texto, 'yo');
+  chatHistorial.push({ role: 'user', content: texto });
+
+  const cargando = burbuja('Escribiendo...', 'bot');
+  try {
+    const res = await fetch(CHAT_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mensajes: chatHistorial.slice(-10) })
+    });
+    const d = await res.json();
+    cargando.textContent = d.respuesta || 'No pude responder, intenta de nuevo.';
+    chatHistorial.push({ role: 'assistant', content: d.respuesta || '' });
+  } catch (e) {
+    cargando.textContent = '⚠️ No pude conectarme. Intenta de nuevo en un momento.';
+  }
+}
+</script>
+</body>
+</html>

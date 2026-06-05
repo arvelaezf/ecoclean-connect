@@ -1,0 +1,23 @@
+tabla,columna,tipo,acepta_nulos,valor_por_defecto
+perfiles,id,uuid,NO,null
+perfiles,email,text,YES,null
+perfiles,rol,text,NO,'ciudadano'::text
+perfiles,created_at,timestamp with time zone,YES,now()
+solicitudes,id,uuid,NO,gen_random_uuid()
+solicitudes,created_at,timestamp with time zone,YES,now()
+solicitudes,es_valido,boolean,YES,null
+solicitudes,motivo_rechazo,text,YES,null
+solicitudes,tipo,text,YES,null
+solicitudes,descripcion,text,YES,null
+solicitudes,peso_kg,numeric,YES,null
+solicitudes,volumen_m3,numeric,YES,null
+solicitudes,tarifa_base,integer,YES,null
+solicitudes,subsidio_pct,integer,YES,null
+solicitudes,precio_final,integer,YES,null
+solicitudes,estrato,integer,YES,null
+solicitudes,lat,double precision,YES,null
+solicitudes,lng,double precision,YES,null
+solicitudes,direccion,text,YES,null
+solicitudes,estado,text,YES,'pendiente'::text
+solicitudes,foto_base64,text,YES,null
+solicitudes,orden_ruta,integer,YES,null

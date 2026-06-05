@@ -1,0 +1,90 @@
+{
+  "name": "EcoClean - Clasificador de residuos",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ecoclean",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4aaa-8bbb-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "e7f8a9b0-1234-4cde-9f01-aabbccddeeff"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "TU_API_KEY_ANTHROPIC" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"model\": \"claude-sonnet-4-6\", \"max_tokens\": 500, \"temperature\": 0, \"system\": \"Eres un inspector experto en residuos sólidos voluminosos de una empresa de aseo en Colombia. Analizas fotos enviadas por ciudadanos que solicitan recolección de objetos grandes. Respondes ÚNICAMENTE con un objeto JSON válido, sin texto adicional y sin markdown.\", \"messages\": [{ \"role\": \"user\", \"content\": [ { \"type\": \"image\", \"source\": { \"type\": \"base64\", \"media_type\": \"{{ $json.body.mime }}\", \"data\": \"{{ $json.body.foto_base64 }}\" } }, { \"type\": \"text\", \"text\": \"Analiza la imagen y responde SOLO con un JSON con estos campos: es_residuo_voluminoso (true o false), motivo_rechazo (null, o texto breve si no es válido), tipo (uno de: colchon, mueble, electrodomestico, escombros, otro), descripcion (texto corto del objeto y su estado), peso_kg (número estimado conservador), volumen_m3 (número estimado), confianza (0 a 100). Reglas: es válido SOLO si se ve un objeto voluminoso real como colchón, mueble, electrodoméstico, sofá o escombros. Personas, mascotas, bolsas de basura ordinaria, capturas de pantalla o fotos sin residuo: es_residuo_voluminoso false con motivo_rechazo claro. Sé conservador en las estimaciones.\" } ] }] }",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0002-4aaa-8bbb-000000000002",
+      "name": "Claude Vision",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Parsear respuesta de la IA\nconst respuesta = $input.first().json;\nconst texto = respuesta.content[0].text;\nconst ia = JSON.parse(texto.replace(/```json|```/g, '').trim());\n\n// 2. Datos originales enviados por el ciudadano\nconst datos = $('Webhook').first().json.body;\n\n// 3. Reglas de negocio DETERMINISTAS (la IA clasifica, las reglas ponen el precio)\nconst TARIFAS = { colchon: 35000, mueble: 45000, electrodomestico: 50000, escombros: 60000, otro: 40000 };\nconst SUBSIDIOS = { 1: 70, 2: 50, 3: 30, 4: 10, 5: 0, 6: 0 }; // % de subsidio por estrato\n\nlet tarifa_base = 0, subsidio_pct = 0, precio_final = 0;\nif (ia.es_residuo_voluminoso) {\n  tarifa_base = TARIFAS[ia.tipo] ?? TARIFAS.otro;\n  if (ia.peso_kg > 50) tarifa_base += 20000; // recargo por peso\n  subsidio_pct = SUBSIDIOS[datos.estrato] ?? 0;\n  precio_final = Math.round(tarifa_base * (1 - subsidio_pct / 100));\n}\n\nreturn [{ json: {\n  es_valido: ia.es_residuo_voluminoso === true,\n  motivo_rechazo: ia.motivo_rechazo ?? null,\n  tipo: ia.tipo ?? null,\n  descripcion: ia.descripcion ?? null,\n  peso_kg: ia.peso_kg ?? null,\n  volumen_m3: ia.volumen_m3 ?? null,\n  tarifa_base, subsidio_pct, precio_final,\n  estrato: Number(datos.estrato),\n  lat: Number(datos.lat),\n  lng: Number(datos.lng),\n  direccion: datos.direccion ?? null,\n  estado: 'pendiente',\n  foto_base64: datos.foto_base64\n}}];"
+      },
+      "id": "a1b2c3d4-0003-4aaa-8bbb-000000000003",
+      "name": "Reglas de negocio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "tableId": "solicitudes",
+        "dataToSend": "autoMapInputData"
+      },
+      "id": "a1b2c3d4-0004-4aaa-8bbb-000000000004",
+      "name": "Guardar en Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { es_valido: $('Reglas de negocio').first().json.es_valido, motivo_rechazo: $('Reglas de negocio').first().json.motivo_rechazo, tipo: $('Reglas de negocio').first().json.tipo, descripcion: $('Reglas de negocio').first().json.descripcion, peso_kg: $('Reglas de negocio').first().json.peso_kg, volumen_m3: $('Reglas de negocio').first().json.volumen_m3, tarifa_base: $('Reglas de negocio').first().json.tarifa_base, subsidio_pct: $('Reglas de negocio').first().json.subsidio_pct, precio_final: $('Reglas de negocio').first().json.precio_final } }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0005-4aaa-8bbb-000000000005",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [880, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Claude Vision", "type": "main", "index": 0 }]]
+    },
+    "Claude Vision": {
+      "main": [[{ "node": "Reglas de negocio", "type": "main", "index": 0 }]]
+    },
+    "Reglas de negocio": {
+      "main": [[{ "node": "Guardar en Supabase", "type": "main", "index": 0 }]]
+    },
+    "Guardar en Supabase": {
+      "main": [[{ "node": "Responder", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

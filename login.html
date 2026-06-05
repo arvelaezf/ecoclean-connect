@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EcoClean Connect · Ingresar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde: #39A949;
+    --verde-claro: #A3D556;
+    --verde-oscuro: #1B5E34;
+    --cian: #1BA2DB;
+    --azul: #165A8F;
+    --marino: #0B2A5C;
+    --slogan: #4A769B;
+    --crema: #f2f7f4;
+    --tinta: #0B2A5C;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Poppins', 'Segoe UI', sans-serif;
+    background: var(--crema); color: var(--tinta);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 14px;
+  }
+  .fondo {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; z-index: 0;
+  }
+  .velo { position: fixed; inset: 0; background: rgba(11, 42, 92, .40); z-index: 1; }
+  .tarjeta {
+    position: relative; z-index: 2;
+    background: #fff; border: 2px solid var(--tinta); border-radius: 14px;
+    box-shadow: 6px 6px 0 var(--verde); max-width: 400px; width: 100%; padding: 28px;
+  }
+  .logo { display: block; margin: 0 auto 4px; max-height: 120px; max-width: 90%; }
+  .sub { font-size: .85rem; color: var(--slogan); margin: 2px 0 20px; text-align: center; }
+  label { display: block; font-weight: 600; font-size: .8rem; margin: 14px 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  input {
+    width: 100%; padding: 11px; border: 1.5px solid var(--tinta);
+    border-radius: 8px; background: var(--crema); font-family: inherit; font-size: .95rem;
+  }
+  button#btn {
+    width: 100%; margin-top: 22px; padding: 13px;
+    background: linear-gradient(90deg, var(--verde), var(--azul)); color: #fff;
+    border: none; border-radius: 8px;
+    font-family: inherit; font-size: 1rem; font-weight: 700; cursor: pointer;
+    transition: transform .1s, filter .2s;
+  }
+  button#btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  button#btn:disabled { filter: grayscale(.5); cursor: wait; }
+  .alterna { text-align: center; margin-top: 16px; font-size: .85rem; color: var(--slogan); }
+  .alterna a { color: var(--azul); font-weight: 600; cursor: pointer; }
+  #msg { margin-top: 14px; font-size: .85rem; text-align: center; display: none; padding: 10px; border-radius: 8px; }
+  .error { background: #fbeeed; border: 1.5px solid #b3322b; color: #7a1f1a; }
+  .info { background: #eef7ef; border: 1.5px solid var(--verde); color: var(--verde-oscuro); }
+</style>
+</head>
+<body>
+<video class="fondo" autoplay muted loop playsinline>
+  <source src="video.mp4" type="video/mp4">
+</video>
+<div class="velo"></div>
+<div class="tarjeta">
+  <img src="logo.png" alt="Eco Clean Connect — Tecnología y Sostenibilidad" class="logo">
+  <p class="sub" id="subtitulo">Ingresa para reportar y gestionar residuos voluminosos</p>
+
+  <label>Correo electrónico</label>
+  <input type="email" id="email" placeholder="tucorreo@gmail.com" autocomplete="email">
+
+  <label>Contraseña</label>
+  <input type="password" id="clave" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
+
+  <button id="btn" onclick="enviar()">Ingresar</button>
+
+  <p class="alterna" id="alterna">¿No tienes cuenta? <a onclick="cambiarModo()">Crear cuenta</a></p>
+  <div id="msg"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://lfalktorfiodcjyhkynb.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmYWxrdG9yZmlvZGNqeWhreW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1Nzk4ODgsImV4cCI6MjA5NjE1NTg4OH0.8Ublgykq5WhsKvKuyEChCJZEq7J7otQlR2Tm2hsUP84";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = id => document.getElementById(id);
+let modo = 'ingresar'; // 'ingresar' | 'crear'
+
+// Si ya hay sesión activa, entra directo según el rol
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) irSegunRol(session.user.id);
+})();
+
+function cambiarModo() {
+  modo = modo === 'ingresar' ? 'crear' : 'ingresar';
+  $('btn').textContent = modo === 'ingresar' ? 'Ingresar' : 'Crear cuenta';
+  $('alterna').innerHTML = modo === 'ingresar'
+    ? '¿No tienes cuenta? <a onclick="cambiarModo()">Crear cuenta</a>'
+    : '¿Ya tienes cuenta? <a onclick="cambiarModo()">Ingresar</a>';
+  $('subtitulo').textContent = modo === 'ingresar'
+    ? 'Ingresa para reportar y gestionar residuos voluminosos'
+    : 'Crea tu cuenta ciudadana en segundos';
+  mensaje('', '');
+}
+
+function mensaje(texto, tipo) {
+  const m = $('msg');
+  if (!texto) { m.style.display = 'none'; return; }
+  m.textContent = texto;
+  m.className = tipo;
+  m.style.display = 'block';
+}
+
+// Lee el rol del perfil y redirige a la vista correspondiente
+async function irSegunRol(userId) {
+  const { data: p } = await sb.from('perfiles').select('rol').eq('id', userId).single();
+  const rol = p ? p.rol : 'ciudadano';
+  location.href = rol === 'admin' ? 'panel.html'
+                : rol === 'conductor' ? 'conductor.html'
+                : 'ciudadano.html';
+}
+
+async function enviar() {
+  const email = $('email').value.trim();
+  const clave = $('clave').value;
+  if (!email || clave.length < 6) return mensaje('Escribe tu correo y una contraseña de mínimo 6 caracteres.', 'error');
+
+  $('btn').disabled = true;
+  try {
+    if (modo === 'crear') {
+      const { data, error } = await sb.auth.signUp({ email, password: clave });
+      if (error) throw error;
+      if (!data.session) {
+        // El proyecto tiene confirmación por correo activada
+        mensaje('Cuenta creada. Revisa tu correo para confirmarla y luego ingresa.', 'info');
+        $('btn').disabled = false;
+        return;
+      }
+      await irSegunRol(data.session.user.id);
+    } else {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: clave });
+      if (error) throw error;
+      await irSegunRol(data.user.id);
+    }
+  } catch (e) {
+    const txt = (e.message || '').includes('Invalid login') ? 'Correo o contraseña incorrectos.'
+              : (e.message || '').includes('already registered') ? 'Ese correo ya tiene cuenta. Usa "Ingresar".'
+              : 'Error: ' + e.message;
+    mensaje(txt, 'error');
+    $('btn').disabled = false;
+  }
+}
+
+// Enter envía el formulario
+document.addEventListener('keydown', e => { if (e.key === 'Enter') enviar(); });
+</script>
+</body>
+</html>

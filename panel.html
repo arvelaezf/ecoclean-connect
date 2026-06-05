@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EcoClean · Panel del recolector</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde: #39A949;
+    --verde-claro: #A3D556;
+    --verde-oscuro: #1B5E34;
+    --cian: #1BA2DB;
+    --azul: #165A8F;
+    --marino: #0B2A5C;
+    --slogan: #4A769B;
+    --crema: #f2f7f4;
+    --tinta: #0B2A5C;
+    --naranja: #d97b29;
+    --rojo: #b3322b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Poppins', 'Segoe UI', sans-serif; background: var(--crema); color: var(--tinta); height: 100vh; display: flex; flex-direction: column; }
+
+  header {
+    background: var(--marino); color: #fff; padding: 10px 22px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 1.2rem; font-weight: 600; }
+  header .logo-chip { height: 48px; background: #fff; border-radius: 10px; padding: 4px 10px; }
+  header .stats { display: flex; gap: 18px; margin-left: auto; font-size: .85rem; }
+  header .stats b { font-size: 1.1rem; display: block; color: var(--verde-claro); }
+  header .salir { background: transparent; color: #cfe3f5; border: 1.5px solid var(--slogan); border-radius: 8px; padding: 6px 14px; font-family: inherit; font-size: .8rem; cursor: pointer; }
+
+  .contenedor { flex: 1; display: flex; min-height: 0; }
+  aside {
+    width: 340px; background: #fff; border-right: 2px solid var(--tinta);
+    display: flex; flex-direction: column;
+  }
+  .acciones { padding: 12px; border-bottom: 1.5px solid #ddd; display: flex; gap: 8px; }
+  .acciones button {
+    flex: 1; padding: 10px; border: 1.5px solid var(--tinta); border-radius: 8px;
+    font-family: inherit; font-weight: bold; font-size: .85rem; cursor: pointer;
+  }
+  #btnRuta { background: linear-gradient(90deg, var(--verde), var(--azul)); color: #fff; border-color: var(--marino); }
+  #btnRefrescar { background: var(--crema); }
+
+  #lista { flex: 1; overflow-y: auto; }
+  .item { padding: 12px 14px; border-bottom: 1px solid #e5e5e5; cursor: pointer; font-size: .85rem; }
+  .item:hover { background: #f0f7f1; }
+  .item .titulo { font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+  .item .orden {
+    background: var(--verde); color: #fff; border-radius: 50%;
+    width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: .75rem; margin-right: 6px;
+  }
+  .pill { font-size: .68rem; padding: 2px 8px; border-radius: 10px; color: #fff; text-transform: uppercase; letter-spacing: .04em; }
+  .pendiente { background: var(--naranja); }
+  .en_ruta { background: var(--cian); }
+  .recogido { background: var(--verde); }
+  .item .detalle { color: #5a6b5f; margin-top: 3px; }
+  .item .precio { color: var(--verde-oscuro); font-weight: bold; }
+
+  #mapa { flex: 1; }
+  .popup-foto { width: 180px; border-radius: 6px; display: block; margin-bottom: 6px; }
+  .popup-btn {
+    margin-top: 6px; width: 100%; padding: 6px; background: var(--verde); color: #fff;
+    border: none; border-radius: 6px; font-family: inherit; font-weight: bold; cursor: pointer;
+  }
+  .num-icon {
+    background: var(--marino); color: #fff; border-radius: 50%; border: 2px solid #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: bold; font-family: inherit;
+    box-shadow: 0 1px 4px rgba(0,0,0,.4);
+  }
+  #aviso { padding: 10px 14px; background: #fff8e6; border-top: 1.5px solid #e0c878; font-size: .78rem; display: none; }
+
+  /* ---------- Responsive: celulares y tablets ---------- */
+  @media (max-width: 768px) {
+    .contenedor { flex-direction: column; }
+    #mapa { order: -1; height: 42vh; flex: none; border-bottom: 2px solid var(--tinta); }
+    aside {
+      width: 100%; flex: 1; min-height: 0;
+      border-right: none;
+    }
+    header { padding: 8px 14px; gap: 10px; }
+    header h1 { font-size: 1rem; }
+    header .logo-chip { height: 38px; }
+    header .stats { gap: 12px; font-size: .75rem; }
+    header .stats b { font-size: 1rem; }
+    .acciones button { font-size: .8rem; padding: 9px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="logo.png" alt="Eco Clean Connect" class="logo-chip">
+  <h1>Panel del recolector</h1>
+  <div class="stats">
+    <span><b id="stPend">0</b>pendientes</span>
+    <span><b id="stKg">0</b>kg estimados</span>
+    <span><b id="stPlata">$0</b>ingresos del día</span>
+  </div>
+  <button class="salir" onclick="location.href='ciudadano.html'">🏠 Portal ciudadano</button>
+  <button class="salir" onclick="cerrarSesion()">Salir</button>
+</header>
+
+<div class="contenedor">
+  <aside>
+    <div class="acciones">
+      <button id="btnRuta" onclick="optimizarRuta()">🚛 Optimizar ruta</button>
+      <button id="btnRefrescar" onclick="cargar()">↻ Actualizar</button>
+    </div>
+    <div id="lista"></div>
+    <div id="aviso"></div>
+  </aside>
+  <div id="mapa"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ⬇️⬇️⬇️ CONFIGURA ESTAS 2 LÍNEAS (Supabase → Settings → API) ⬇️⬇️⬇️
+const SUPABASE_URL = "https://lfalktorfiodcjyhkynb.supabase.co";   // ej: https://abcdefgh.supabase.co
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmYWxrdG9yZmlvZGNqeWhreW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1Nzk4ODgsImV4cCI6MjA5NjE1NTg4OH0.8Ublgykq5WhsKvKuyEChCJZEq7J7otQlR2Tm2hsUP84";      // la "anon public" key
+// ⬆️⬆️⬆️ SOLO ESO ⬆️⬆️⬆️
+
+// Base de operaciones del camión (punto de partida de la ruta)
+const BASE = { lat: 6.1707, lng: -75.5873, nombre: "Base EcoClean Envigado" };
+
+// ---------- Autenticación: solo administradores ----------
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { location.href = 'login.html'; return; }
+  const { data: p } = await sb.from('perfiles').select('rol').eq('id', session.user.id).single();
+  if (!p || p.rol !== 'admin') location.href = 'login.html';
+})();
+async function cerrarSesion() { await sb.auth.signOut(); location.href = 'login.html'; }
+
+const headers = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' };
+const fmt = n => '$' + Number(n || 0).toLocaleString('es-CO');
+let mapa, capaMarcadores, capaRuta, solicitudes = [], ordenRuta = {};
+
+// ---------- Mapa ----------
+mapa = L.map('mapa').setView([BASE.lat, BASE.lng], 13);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap'
+}).addTo(mapa);
+capaMarcadores = L.layerGroup().addTo(mapa);
+capaRuta = L.layerGroup().addTo(mapa);
+window.addEventListener('resize', () => mapa.invalidateSize());
+L.marker([BASE.lat, BASE.lng]).addTo(mapa).bindPopup(`<b>🏭 ${BASE.nombre}</b><br>Punto de salida del camión`);
+
+// ---------- Cargar solicitudes desde Supabase ----------
+async function cargar() {
+  if (SUPABASE_URL.includes('PEGA_AQUI')) { alert('Falta configurar SUPABASE_URL y SUPABASE_KEY en el código'); return; }
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/solicitudes?select=*&es_valido=eq.true&order=created_at.desc&limit=100`, { headers });
+    solicitudes = await res.json();
+    pintar();
+  } catch (e) {
+    document.getElementById('aviso').style.display = 'block';
+    document.getElementById('aviso').textContent = '⚠️ Error cargando de Supabase: ' + e.message;
+  }
+}
+
+function pintar() {
+  capaMarcadores.clearLayers();
+  const lista = document.getElementById('lista');
+  lista.innerHTML = '';
+
+  const pendientes = solicitudes.filter(s => s.estado !== 'recogido');
+  document.getElementById('stPend').textContent = pendientes.length;
+  document.getElementById('stKg').textContent = Math.round(pendientes.reduce((a, s) => a + (s.peso_kg || 0), 0));
+  document.getElementById('stPlata').textContent = fmt(solicitudes.reduce((a, s) => a + (s.precio_final || 0), 0));
+
+  // Ordenar: primero las de la ruta optimizada, luego el resto
+  const ordenadas = [...solicitudes].sort((a, b) => (ordenRuta[a.id] ?? 999) - (ordenRuta[b.id] ?? 999));
+
+  for (const s of ordenadas) {
+    const num = ordenRuta[s.id] ?? (s.estado === 'en_ruta' ? s.orden_ruta : null);
+    const color = s.estado === 'recogido' ? '#39A949' : (num ? '#1BA2DB' : '#d97b29');
+    const estadoTxt = s.estado === 'recogido' ? 'recogido' : (num ? 'en_ruta' : 'pendiente');
+
+    // Marcador en el mapa
+    const marcador = num
+      ? L.marker([s.lat, s.lng], { icon: L.divIcon({ className: 'num-icon', html: num, iconSize: [26, 26] }) })
+      : L.circleMarker([s.lat, s.lng], { radius: 9, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 });
+
+    marcador.bindPopup(`
+      ${s.foto_base64 ? `<img class="popup-foto" src="data:image/jpeg;base64,${s.foto_base64}">` : ''}
+      <b>${s.descripcion || s.tipo}</b><br>
+      ${s.tipo} · ${s.peso_kg ?? '?'} kg · ${fmt(s.precio_final)}<br>
+      📍 ${s.direccion || ''}<br>
+      ${s.estado !== 'recogido' ? `<button class="popup-btn" onclick="marcarRecogido('${s.id}')">✅ Marcar recogido</button>` : '✅ Recogido'}
+    `);
+    capaMarcadores.addLayer(marcador);
+
+    // Fila en la lista
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML = `
+      <div class="titulo">
+        <span>${num ? `<span class="orden">${num}</span>` : ''}${s.tipo || 'residuo'}</span>
+        <span class="pill ${estadoTxt}">${estadoTxt.replace('_', ' ')}</span>
+      </div>
+      <div class="detalle">${(s.descripcion || '').slice(0, 60)}</div>
+      <div class="detalle">${s.peso_kg ?? '?'} kg · <span class="precio">${fmt(s.precio_final)}</span> · estrato ${s.estrato ?? '?'}</div>
+    `;
+    div.onclick = () => { mapa.setView([s.lat, s.lng], 16); marcador.openPopup(); };
+    lista.appendChild(div);
+  }
+}
+
+// ---------- Optimización de ruta (vecino más cercano, determinista) ----------
+function distKm(a, b) { // Haversine
+  const R = 6371, dLat = (b.lat - a.lat) * Math.PI / 180, dLng = (b.lng - a.lng) * Math.PI / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+async function optimizarRuta() {
+  ordenRuta = {};
+  capaRuta.clearLayers();
+  let restantes = solicitudes.filter(s => s.estado !== 'recogido' && s.lat && s.lng);
+  if (!restantes.length) return alert('No hay solicitudes pendientes para rutear');
+
+  // PASO 1: nuestro algoritmo decide el ORDEN de paradas (vecino más cercano, determinista)
+  let actual = BASE, orden = 1;
+  const paradas = [];
+  while (restantes.length) {
+    restantes.sort((x, y) => distKm(actual, x) - distKm(actual, y)); // el más cercano primero
+    const siguiente = restantes.shift();
+    ordenRuta[siguiente.id] = orden++;
+    paradas.push(siguiente);
+    actual = siguiente;
+  }
+  const puntos = [[BASE.lat, BASE.lng], ...paradas.map(s => [s.lat, s.lng])];
+
+  // Persistir la asignación en la base: el conductor verá estas paradas en su vista
+  Promise.all(paradas.map(s =>
+    fetch(`${SUPABASE_URL}/rest/v1/solicitudes?id=eq.${s.id}`, {
+      method: 'PATCH', headers,
+      body: JSON.stringify({ estado: 'en_ruta', orden_ruta: ordenRuta[s.id] })
+    })
+  ));
+
+  const aviso = document.getElementById('aviso');
+  aviso.style.display = 'block';
+  aviso.textContent = '🚛 Calculando ruta por las calles...';
+
+  // PASO 2: OSRM (motor de ruteo open-source sobre OpenStreetMap) traza el
+  // recorrido REAL por las calles entre las paradas, con km y minutos de conducción
+  try {
+    const coords = puntos.map(p => `${p[1]},${p[0]}`).join(';'); // OSRM usa lng,lat
+    const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`);
+    const d = await res.json();
+    if (d.code !== 'Ok') throw new Error(d.code);
+
+    const ruta = d.routes[0];
+    const linea = ruta.geometry.coordinates.map(c => [c[1], c[0]]); // de vuelta a lat,lng
+    L.polyline(linea, { color: '#165A8F', weight: 5, opacity: .85 }).addTo(capaRuta);
+    mapa.fitBounds(linea, { padding: [40, 40] });
+    aviso.innerHTML = `🚛 Ruta por calles: <b>${paradas.length} paradas · ${(ruta.distance / 1000).toFixed(1)} km · ~${Math.round(ruta.duration / 60)} min de conducción</b> desde la base.`;
+  } catch (e) {
+    // PLAN B: si el servicio de ruteo no responde, líneas directas (la demo nunca se rompe)
+    L.polyline(puntos, { color: '#165A8F', weight: 4, dashArray: '8 6', opacity: .85 }).addTo(capaRuta);
+    mapa.fitBounds(puntos, { padding: [40, 40] });
+    aviso.innerHTML = `🚛 Ruta optimizada: <b>${paradas.length} paradas</b> (líneas directas — ruteo por calles no disponible en este momento).`;
+  }
+  pintar();
+}
+
+// ---------- Marcar como recogido (PATCH a Supabase) ----------
+async function marcarRecogido(id) {
+  await fetch(`${SUPABASE_URL}/rest/v1/solicitudes?id=eq.${id}`, {
+    method: 'PATCH', headers,
+    body: JSON.stringify({ estado: 'recogido' })
+  });
+  delete ordenRuta[id];
+  cargar();
+}
+
+// Carga inicial + auto-refresco cada 15 s (para el efecto "magia" en la demo:
+// alguien reporta desde el celular y el pin aparece solo en el panel)
+cargar();
+setInterval(cargar, 15000);
+</script>
+</body>
+</html>

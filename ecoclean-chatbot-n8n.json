@@ -1,0 +1,63 @@
+{
+  "name": "EcoClean - Chatbot ciudadano",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ecoclean-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0001-4aaa-8bbb-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "f8f9a0b1-5678-4cde-9f01-bbccddeeff00"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "TU_API_KEY_ANTHROPIC" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"model\": \"claude-sonnet-4-6\", \"max_tokens\": 350, \"temperature\": 0.3, \"system\": \"Eres EcoBot, el asistente virtual de EcoClean Connect, la plataforma que conecta a ciudadanos de Medellín y el Valle de Aburrá con la recolección de residuos voluminosos (colchones, muebles, electrodomésticos dañados, escombros). CÓMO FUNCIONA: el ciudadano sube una foto del objeto en esta misma página, una IA lo clasifica y estima su peso, y al instante recibe la tarifa con el subsidio de su estrato aplicado. Luego un camión autorizado pasa a recogerlo. TARIFAS BASE: colchón $35.000, mueble $45.000, electrodoméstico $50.000, escombros $60.000, otros voluminosos $40.000; recargo de $20.000 si pesa más de 50 kg. SUBSIDIOS POR ESTRATO: estrato 1 paga solo el 30%, estrato 2 el 50%, estrato 3 el 70%, estrato 4 el 90%, estratos 5 y 6 pagan tarifa completa. REGLAS: responde en español, amable y breve (máximo 3-4 frases). La cotización exacta SIEMPRE requiere subir la foto en el formulario de arriba, invita a hacerlo. NO recogemos basura ordinaria domiciliaria (esa la recoge el servicio de aseo normal) ni residuos peligrosos como químicos, baterías de carro o material hospitalario: para esos, indica contactar a la autoridad ambiental. No inventes horarios ni coberturas exactas: di que el despachador confirma la fecha al asignar la ruta. Si preguntan algo fuera del tema de residuos y el servicio, redirige con amabilidad al tema. Nunca pidas datos personales sensibles.\", \"messages\": {{ JSON.stringify($json.body.mensajes) }} }",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0002-4aaa-8bbb-000000000002",
+      "name": "EcoBot (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { respuesta: $json.content[0].text } }}",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0003-4aaa-8bbb-000000000003",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [440, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "EcoBot (Claude)", "type": "main", "index": 0 }]]
+    },
+    "EcoBot (Claude)": {
+      "main": [[{ "node": "Responder", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
