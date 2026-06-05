@@ -21,9 +21,10 @@ Construida en un día durante la **Hackathon de la Beca Ser ANDI** (Universidad 
 2. **La IA de visión (Claude) lo clasifica**: tipo, peso y volumen estimados, descripción — y **rechaza reportes falsos** explicando el motivo.
 3. **El estrato se detecta automáticamente** con la capa de estratificación por manzana del DANE (el usuario confirma).
 4. **Cotización instantánea con subsidio**: la IA clasifica, pero el precio lo calculan **reglas de negocio deterministas** — la IA nunca decide cuánto paga un ciudadano.
-5. **El despachador optimiza la ruta**: orden de paradas por vecino más cercano + recorrido real por las calles (OSRM) con km y minutos.
-6. **El conductor ejecuta** desde su celular: paradas en orden, navegación a Google Maps y marcación de recogidas.
-7. **EcoBot**, asistente conversacional con IA, resuelve las dudas del ciudadano sobre el servicio.
+5. **El ciudadano decide**: la cotización es una oferta. Solo al **aceptar el precio** se convierte en solicitud para el recolector; las rechazadas quedan registradas como dato de elasticidad de la tarifa.
+6. **El despachador optimiza la ruta**: orden de paradas por vecino más cercano + recorrido real por las calles (OSRM) con km y minutos.
+7. **El conductor ejecuta** desde su celular: paradas en orden, navegación a Google Maps y marcación de recogidas.
+8. **EcoBot**, asistente conversacional con IA, resuelve las dudas del ciudadano sobre el servicio.
 
 ## 🏗️ Arquitectura
 
@@ -59,6 +60,7 @@ Ciudadano (foto + GPS) ──► n8n (webhook) ──► Claude Vision (clasific
 
 ## 🛡️ Ética y salvaguardas
 
+- Consentimiento explícito: nadie queda agendado sin aceptar el precio que va a pagar
 - Antifraude con IA (rechazo de fotos que no muestran residuos reales)
 - Humano en el control: la IA y los datos abiertos sugieren, el usuario confirma
 - Precios deterministas y auditables — la IA no fija tarifas
